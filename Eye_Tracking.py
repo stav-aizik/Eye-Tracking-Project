@@ -1,4 +1,5 @@
 # Copyright © 2025  Stav Aizik. All rights reserved. See LICENSE for details.
+#Import
 import cv2, mediapipe as mp, numpy as np, pygame, time, os, csv, pandas as pd
 from collections import deque
 from datetime import datetime
@@ -101,8 +102,8 @@ poly_model = make_pipeline(PolynomialFeatures(3), LinearRegression())
 
 def render_text(screen, font, lines, highlight=None, show_dot=None):
     """
-    מצייר טקסט עם עיטוף שורות אוטומטי:
-    אם מילה לא נכנסת עד שול ימין – יורדים לשורה הבאה.
+    Draws text with automatic line wrapping:
+    if a word doesn’t fit before the right margin – it moves to the next line.
     """
     global TOTAL_RENDERED_LINES
     screen.fill((255, 255, 255))
@@ -122,14 +123,14 @@ def render_text(screen, font, lines, highlight=None, show_dot=None):
             surf = font.render(word, True, (0, 0, 0))
             rect = surf.get_rect(topleft=(x, y))
 
-            # אם המילה חוצה את השול הימני, עוברים לשורה חדשה
+            # If a word reaches the right margin, move to a new line
             if rect.right > max_x and x != x_start:
                 y += LINE_SPACING
                 x = x_start
                 rect.topleft = (x, y)
                 new_line_started = True
 
-            # אם זו המילה הראשונה בשורה – נספור את השורה
+            # If this is the first word in the line – count the line
             if new_line_started:
                 rendered_lines += 1
                 new_line_started = False
@@ -138,12 +139,10 @@ def render_text(screen, font, lines, highlight=None, show_dot=None):
             word_boxes.append((word, rect))
             x += rect.width + 40  # רווח בין מילים
 
-        # סוף “שורה לוגית” – תמיד יורדים שורה (גם אם לא התמלאה לרוחב)
         y += LINE_SPACING
         x = x_start
         new_line_started = True
 
-    # עדכון מספר השורות שצוירו בפועל (כולל שורות שנוצרו מעיטוף)
     TOTAL_RENDERED_LINES = max(rendered_lines, 1)
 
     if highlight:
@@ -247,9 +246,9 @@ def plot_fixations(session_id):
     plt.figure(figsize=(30, 9))
     plt.plot(df['word_with_index'], df['duration'], marker='o', linestyle='-', color='darkblue', linewidth=2)
     plt.title(f"Fixation Duration per Word - {session_id}", fontsize=18)
-    plt.xlabel("Word (with index)", fontsize=24)
-    plt.ylabel("Duration (sec)", fontsize=22)
-    plt.xticks(rotation=75, ha='right', fontsize=22)
+    plt.xlabel("Word (with index)", fontsize=18)
+    plt.ylabel("Duration (sec)", fontsize=16)
+    plt.xticks(rotation=75, ha='right', fontsize=16)
     plt.yticks(fontsize=18)
     plt.grid(True, linestyle='--', alpha=1)
     plt.tight_layout()
@@ -374,7 +373,7 @@ def save_and_plot_statistics():
         "Estimated Reading Speed (WPM)": f"{reading_speed_wpm:.1f} WPM"
     }
 
-    with open(STATS_CSV, "w", newline='', encoding='utf-8') as f:
+    with open(STATS_CSV, "a", newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow(["Metric", "Value"])
         for key, value in stats.items():
@@ -730,3 +729,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
