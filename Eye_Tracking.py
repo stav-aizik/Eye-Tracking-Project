@@ -137,7 +137,7 @@ def render_text(screen, font, lines, highlight=None, show_dot=None):
 
             screen.blit(surf, rect)
             word_boxes.append((word, rect))
-            x += rect.width + 40  # רווח בין מילים
+            x += rect.width + 40  # spacing between words
 
         y += LINE_SPACING
         x = x_start
@@ -497,13 +497,13 @@ def scroll_text(lines, scroll_speed=2):
 
 def clamp_text_offset(lines):
     """
-    מגביל את המיקום האנכי כך שהטקסט לא יברח מהמסך,
-    לפי מספר השורות שנוצרו בפועל אחרי עיטוף.
+    Restricts the vertical offset so that the text does not leave the screen,
+    according to the actual number of lines rendered after wrapping.
     """
     global TEXT_START_Y, screen_h, TOTAL_RENDERED_LINES
-    max_y = 140  # מיקום עליון ברירת מחדל
+    max_y = 140  # default top position
     lines_count = max(TOTAL_RENDERED_LINES, len(lines))
-    min_y = screen_h - (lines_count * LINE_SPACING) - 100  # שול תחתון קטן
+    min_y = screen_h - (lines_count * LINE_SPACING) - 100  # small bottom margin
 
     if min_y > max_y:
         min_y = max_y
@@ -729,4 +729,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
