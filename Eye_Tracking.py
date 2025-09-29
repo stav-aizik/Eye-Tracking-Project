@@ -11,23 +11,32 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score  # metrics
 
 # CONFIG
-CALIB_GRID = 5
-CALIB_FRAMES = 14
-FRAME_DELAY = 0.03
+CALIB_GRID = 5 # Grid size for calibration points (5x5 = 25 points)
+CALIB_FRAMES = 14 # Number of frames to average per calibration point
+FRAME_DELAY = 0.03 # Delay between calibration frame captures (seconds)
+
+# Scaling factors to compensate for head movement (X/Y direction):
 HEAD_GAIN_X = 0.15
 HEAD_GAIN_Y = 0.20
-SMOOTH_WINDOW = 12
+
+SMOOTH_WINDOW = 12 # Window size for smoothing gaze points (moving average)
+
+# File paths for calibration database, fixations, extended tracking, and statistics
 DB_FILE = "calib_db.csv"
 FIXATION_CSV = "reading_trace.csv"
 EXTENDED_CSV = "extended_eye_tracking.csv"
 STATS_CSV = "reading_statistics.csv"
+
 CAM_PREVIEW_SIZE = (320, 240)
 FONT_SIZE = 45
 LINE_SPACING = 140
 TEXT_START_Y = 140
 
-PUPIL_IDX = 468
-NOSE_IDX = 1
+# MediaPipe FaceMesh landmark indices:
+
+PUPIL_IDX = 468 # pupil center (iris midpoint)
+NOSE_IDX = 1 # nose tip (reference for head movement compensation)
+# 469 & 474 = left/right iris edges (used to estimate pupil diameter)
 PUPIL_LEFT = 469
 PUPIL_RIGHT = 474
 
@@ -123,7 +132,7 @@ def render_text(screen, font, lines, highlight=None, show_dot=None):
             surf = font.render(word, True, (0, 0, 0))
             rect = surf.get_rect(topleft=(x, y))
 
-            # If a word reaches the right margin, move to a new line
+            # # Wrap line if exceeds margin
             if rect.right > max_x and x != x_start:
                 y += LINE_SPACING
                 x = x_start
@@ -150,7 +159,7 @@ def render_text(screen, font, lines, highlight=None, show_dot=None):
     if show_dot:
         pygame.draw.circle(screen, (255, 0, 0), show_dot, 12, 3)
 
-
+# Initialize a 2D Kalman filter to smooth gaze points and reduce noise
 def init_kalman():
     kalman = cv2.KalmanFilter(4, 2)
     kalman.measurementMatrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], np.float32)
@@ -158,7 +167,7 @@ def init_kalman():
     kalman.processNoiseCov = np.eye(4, dtype=np.float32) * 0.03
     return kalman
 
-
+# Create a CSV file with headers if it does not already exist
 def init_csv(fname, headers):
     if not os.path.exists(fname):
         with open(fname, "w", newline='', encoding='utf-8') as f:
@@ -174,7 +183,7 @@ def get_latest_session_id(csv_file):
         return None
     return df["session_id"].iloc[-1]
 
-
+# Extract pupil center, nose tip, and estimate pupil diameter from MediaPipe FaceMesh
 def extract_points(results, shape):
     if not results.multi_face_landmarks:
         return None, None, None
@@ -188,7 +197,7 @@ def extract_points(results, shape):
     pupil_diameter = np.linalg.norm(p1 - p2)
     return pupil, nose, pupil_diameter
 
-
+# Compute eye aspect ratio (EAR) used for blink detection
 def eye_aspect_ratio(landmarks, indices, image_shape):
     ih, iw, _ = image_shape
     p = [np.array([landmarks[i].x * iw, landmarks[i].y * ih]) for i in indices]
@@ -196,7 +205,7 @@ def eye_aspect_ratio(landmarks, indices, image_shape):
     horizontal = np.linalg.norm(p[0] - p[3])
     return vertical / horizontal
 
-
+# Log basic fixation event (word, duration, speed, movement, behavior) into CSV
 def log_fixation_csv(word, x, y, start, end, speed, dx, dy, behavior, session_id):
     duration = end - start
     timestamp = datetime.now().isoformat(sep=' ', timespec='milliseconds')
@@ -208,7 +217,7 @@ def log_fixation_csv(word, x, y, start, end, speed, dx, dy, behavior, session_id
             f"{dx:.1f}", f"{dy:.1f}", behavior
         ])
 
-
+# Log extended fixation data including AOI size, coverage, pupil diameter, and mouse position
 def log_extended_fixation(session_id, participant, stimulus, word, rect, ax, ay,
                           start, end, pupil_diameter, dx, dy, behavior):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -479,7 +488,7 @@ def calculate_model_accuracy(eyes_captured, scr_captured):
     return rms, mae, r2
 
 
-# Log accuracy rows into STATS_CSV (appended)
+# Log accuracy rows into STATS_CSV 
 def log_accuracy_to_csv(session_id, rms, mae, r2):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(STATS_CSV, "a", newline='', encoding='utf-8') as f:
@@ -489,10 +498,6 @@ def log_accuracy_to_csv(session_id, rms, mae, r2):
         writer.writerow([session_id, timestamp, "R^2", f"{r2:.3f}"])
 
 
-# OPTIONAL legacy util (not used now; kept for future if needed)
-def scroll_text(lines, scroll_speed=2):
-    global TEXT_START_Y
-    TEXT_START_Y -= scroll_speed
 
 
 def clamp_text_offset(lines):
@@ -514,7 +519,8 @@ def main():
     global screen_w, screen_h, poly_model, TEXT_START_Y
     session_start_time = None
 
-    # PARTICIPANT ID
+    #  Session setup
+    # Ask for participant ID, create session ID, initialize blink counters
     participant = input(" Enter participant ID: ")
     stimulus = " ".join(TEXT_LINES)[:50]
 
@@ -527,7 +533,8 @@ def main():
     blink_flag = False
     EAR_THRESHOLD = 0.2
 
-    # CSV
+    #  CSV initialization 
+    # Ensure calibration, fixation, and extended CSV files exist
     init_csv(DB_FILE, ["pupil_x", "pupil_y", "scr_x", "scr_y", "timestamp"])
     init_csv(FIXATION_CSV, ["session_id", "timestamp", "word", "x", "y", "duration", "speed", "dx", "dy", "behavior"])
     init_csv(EXTENDED_CSV, EXTENDED_HEADERS)
@@ -622,8 +629,8 @@ def main():
                 # e.y > 0 when wheel up; < 0 when wheel down
                 TEXT_START_Y += e.y * 40
                 clamp_text_offset(TEXT_LINES)
-            # --- end manual scrolling controls ---
 
+            #  Calibration mode 
             if e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE and pupil and mode == "calib":
                 samples = []
                 for _ in range(CALIB_FRAMES):
@@ -649,9 +656,9 @@ def main():
                         baseline_nose = nose
                         mode = "run"
                         render_text(screen, font, TEXT_LINES)
-
-        # NOTE: removed automatic scrolling (no scroll_text call here)
-
+        # Run mode 
+        # Track gaze using model + Kalman + smoothing
+        # Detect blinks using EAR and log fixations
         if pupil and nose and mode == "run":
             if session_start_time is None:
                 session_start_time = time.time()  # real start time
@@ -714,7 +721,9 @@ def main():
         screen.blit(cam_surface, (0, screen_h - CAM_PREVIEW_SIZE[1]))
         pygame.display.flip()
         clock.tick(30)
-
+        
+    #  End of session
+    # Close camera, quit pygame, and plot results/statistics
     pygame.quit()
     cap.release()
     plot_fixations(session_id)
@@ -729,5 +738,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
